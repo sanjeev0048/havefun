@@ -1,49 +1,52 @@
 import { motion } from 'framer-motion';
-import { useState } from 'react';
-
-import trampolineZone from '@/assets/trampoline-zone.png';
-import junglePlayground from '@/assets/jungle-playground.png';
-import basketballZone from '@/assets/basketball-zone.png';
-import bubbleBalls from '@/assets/bubble-balls.png';
-import obstacleZone from '@/assets/obstacle-zone.png';
+import { useState, useEffect } from 'react';
 
 const images = [
-  { src: trampolineZone, title: 'Neon Trampoline Zone', subtitle: 'Defy Gravity' },
-  { src: junglePlayground, title: 'Jungle Adventure', subtitle: 'Wild Exploration' },
-  { src: basketballZone, title: 'Slam Dunk Arena', subtitle: 'Bounce & Score' },
-  { src: bubbleBalls, title: 'Bubble Ball Battle', subtitle: 'Epic Collisions' },
-  { src: obstacleZone, title: 'Obstacle Course', subtitle: 'Test Your Limits' },
+  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08204-min-scaled.jpg", title: 'Foam Pit Fun', subtitle: 'Soft Landings' },
+  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08368-min-scaled.jpg", title: 'Slam Dunk', subtitle: 'Sky High' },
+  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08218-min-scaled.jpg", title: 'Obstacle Course', subtitle: 'Agility Test' },
+  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08259-min-scaled.jpg", title: 'Main Court', subtitle: 'Free Jump' },
+  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08254-min-scaled.jpg", title: 'Spider Wall', subtitle: 'Sticky Situation' },
+  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08314-min-scaled.jpg", title: 'HavFun Cafe', subtitle: 'Refresh & Recharge' },
 ];
 
 const ImageGallery = () => {
   const [activeIndex, setActiveIndex] = useState(0);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveIndex((prevIndex) => (prevIndex + 1) % images.length);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [activeIndex]);
+
   return (
     <div className="relative">
       {/* Main Featured Image */}
-      <motion.div 
+      <motion.div
         key={activeIndex}
         initial={{ opacity: 0, scale: 1.05 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6 }}
         className="relative rounded-3xl overflow-hidden aspect-[16/10] shadow-premium group"
       >
-        <img 
+        <img
           src={images[activeIndex].src}
           alt={images[activeIndex].title}
           className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-transparent" />
-        
+
         {/* Neon Border Glow */}
         <div className="absolute inset-0 rounded-3xl border-2 border-primary/30 pointer-events-none" />
-        <motion.div 
+        <motion.div
           className="absolute inset-0 rounded-3xl border border-primary/50"
           animate={{ opacity: [0.3, 0.6, 0.3] }}
           transition={{ duration: 2, repeat: Infinity }}
         />
-        
+
         {/* Content Overlay */}
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
           <motion.div
@@ -70,19 +73,18 @@ const ImageGallery = () => {
             onClick={() => setActiveIndex(idx)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className={`relative flex-shrink-0 w-20 h-14 md:w-24 md:h-16 rounded-xl overflow-hidden transition-all duration-300 ${
-              idx === activeIndex 
-                ? 'ring-2 ring-primary shadow-neon' 
-                : 'ring-1 ring-border/40 opacity-60 hover:opacity-100'
-            }`}
+            className={`relative flex-shrink-0 w-20 h-14 md:w-24 md:h-16 rounded-xl overflow-hidden transition-all duration-300 ${idx === activeIndex
+              ? 'ring-2 ring-primary shadow-neon'
+              : 'ring-1 ring-border/40 opacity-60 hover:opacity-100'
+              }`}
           >
-            <img 
+            <img
               src={image.src}
               alt={image.title}
               className="w-full h-full object-cover"
             />
             {idx === activeIndex && (
-              <motion.div 
+              <motion.div
                 layoutId="activeThumb"
                 className="absolute inset-0 bg-primary/10"
               />

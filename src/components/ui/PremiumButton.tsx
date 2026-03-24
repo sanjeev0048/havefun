@@ -8,14 +8,16 @@ interface PremiumButtonProps {
   variant?: 'primary' | 'secondary' | 'ghost';
   disabled?: boolean;
   className?: string;
+  type?: 'button' | 'submit' | 'reset';
 }
 
-const PremiumButton = ({ 
-  onClick, 
-  children, 
-  variant = 'primary', 
+const PremiumButton = ({
+  onClick,
+  children,
+  variant = 'primary',
   disabled = false,
-  className 
+  className,
+  type = 'button'
 }: PremiumButtonProps) => {
   const variants = {
     primary: 'bg-gradient-neon text-primary-foreground shadow-neon hover:shadow-[0_0_50px_hsl(var(--neon-lime)/0.5)]',
@@ -25,6 +27,7 @@ const PremiumButton = ({
 
   return (
     <motion.button
+      type={type}
       whileHover={!disabled ? { y: -3, scale: 1.02 } : {}}
       whileTap={!disabled ? { scale: 0.98 } : {}}
       onClick={onClick}
@@ -37,7 +40,7 @@ const PremiumButton = ({
       )}
     >
       {variant === 'primary' && !disabled && (
-        <motion.div 
+        <motion.div
           className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/10 to-transparent"
           animate={{ x: ['-100%', '200%'] }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
