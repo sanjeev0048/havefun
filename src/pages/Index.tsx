@@ -7,7 +7,6 @@ import Testimonials from '@/components/HavFun/Testimonials';
 import GalleryContainer from '@/components/HavFun/GalleryContainer';
 import FAQ from '@/components/HavFun/FAQ';
 import Pricing from '@/components/HavFun/Pricing';
-import Schedule from '@/components/HavFun/Schedule';
 import Contact from '@/components/HavFun/Contact';
 
 const Index = () => {
@@ -41,10 +40,6 @@ const Index = () => {
           <Pricing />
         </section>
 
-        <section id="schedule">
-          <Schedule />
-        </section>
-
         <FAQ />
 
         <section id="contact">
@@ -65,7 +60,7 @@ const Index = () => {
             &copy; {new Date().getFullYear()} HavFun Trampoline Park. All rights reserved.
           </p>
           <p className="text-muted-foreground text-xs mt-4">
-            Designed by <a href="https://blackitechs.com/" target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline">Black I Technologies And Solutions</a>
+            Developed by <span className="text-primary font-bold">TAGVERSE</span>
           </p>
         </div>
       </footer>

@@ -86,7 +86,7 @@ const Pricing = () => {
                         </ul>
 
                         <button 
-                            onClick={() => window.location.href='/waiver'}
+                            onClick={() => window.location.href='/booking'}
                             className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-bold hover:shadow-neon transition-all"
                         >
                             Book 30 Mins
@@ -143,7 +143,7 @@ const Pricing = () => {
                         </ul>
 
                         <button 
-                            onClick={() => window.location.href='/waiver'}
+                            onClick={() => window.location.href='/booking'}
                             className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-neon hover:scale-[1.02] transition-all"
                         >
                             Book 60 Mins

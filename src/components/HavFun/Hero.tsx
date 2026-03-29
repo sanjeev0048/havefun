@@ -45,7 +45,7 @@ const Hero = () => {
                     </motion.div>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                        <Link to="/waiver">
+                        <Link to="/booking">
                             <PremiumButton className="h-14 px-8 text-lg">
                                 Book Now <ArrowRight className="ml-2 w-5 h-5" />
                             </PremiumButton>
