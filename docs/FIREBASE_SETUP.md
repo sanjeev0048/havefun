@@ -56,6 +56,23 @@ Change a doc in the Firestore console (or re-run `npm run seed` after editing `s
 To replace an image, regenerate base64 with `npm run images:build` (update `scripts/images-manifest.mjs`
 first) and re-seed. The site picks up changes within the 1-hour query cache (`staleTime`).
 
+## Admin page (`/admin`)
+
+A login-gated dashboard at `/admin` lists bookings, waivers (with signature image), and
+contact messages. Access is restricted to an **email allowlist**.
+
+**One-time setup:**
+1. In the Firebase console → **Authentication** → enable the **Email/Password** provider.
+2. **Authentication → Users → Add user** — create the admin account (e.g.
+   `havfuntrampolinepark@gmail.com`) with a password. (There is no public signup.)
+3. Make sure that email is in **both** places (already set for the business email):
+   - `src/lib/admin.ts` → `ADMIN_EMAILS` (controls UI access)
+   - `firestore.rules` → `isAdmin()` (controls data access — the real boundary)
+4. Deploy the updated `firestore.rules`.
+
+Then visit `/admin`, sign in, and review submissions. To add another admin, add their email
+to both lists and create their user in the console.
+
 ## Follow-ups / known gaps
 
 - **Email notifications lost.** The old Express server emailed staff on new contact/waiver. Firestore

@@ -27,6 +27,15 @@ service cloud.firestore {
         && request.resource.data.message is string;
     }
 
+    // Admin allowlist — keep in sync with src/lib/admin.ts (ADMIN_EMAILS).
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'havfuntrampolinepark@gmail.com'
+          // add more admin emails here
+        ];
+    }
+
     // Public, read-only content
     match /settings/{doc}      { allow read: if true; allow write: if false; }
     match /attractions/{doc}   { allow read: if true; allow write: if false; }
@@ -39,15 +48,18 @@ service cloud.firestore {
     // Visitor submissions: create-only, not publicly readable
     match /contactMessages/{doc} {
       allow create: if isValidContact();
-      allow read, update, delete: if false;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
     match /bookings/{doc} {
       allow create: if request.resource.data.keys().hasAll(['date', 'time', 'duration']);
-      allow read, update, delete: if false;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
     match /waivers/{doc} {
       allow create: if request.resource.data.keys().hasAll(['name', 'email', 'participants']);
-      allow read, update, delete: if false;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
     // Deny everything else by default

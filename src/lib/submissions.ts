@@ -4,7 +4,14 @@
  * Firestore. Security Rules allow create-only (no public read) on these
  * collections; see firestore.rules.
  */
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db } from './firebase';
 
 export interface ContactInput {
@@ -69,3 +76,21 @@ export async function submitWaiver(input: WaiverInput) {
     createdAt: serverTimestamp(),
   });
 }
+
+// ---- Admin reads (allowlisted users only; enforced by Firestore rules) ----
+
+export interface WithMeta {
+  id: string;
+  status?: string;
+  createdAt?: { seconds: number; nanoseconds: number } | null;
+}
+
+async function listByCreatedAt<T>(name: string): Promise<T[]> {
+  const snap = await getDocs(query(collection(db, name), orderBy('createdAt', 'desc')));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+}
+
+export const listContactMessages = () =>
+  listByCreatedAt<ContactInput & WithMeta>('contactMessages');
+export const listBookings = () => listByCreatedAt<BookingInput & WithMeta>('bookings');
+export const listWaivers = () => listByCreatedAt<WaiverInput & WithMeta>('waivers');
