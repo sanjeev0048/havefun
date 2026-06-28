@@ -11,10 +11,12 @@ import {
   Sparkles
 } from 'lucide-react';
 import { format, addDays, isSameDay, isBefore, startOfDay } from 'date-fns';
+import { toast } from 'sonner';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import PremiumButton from '@/components/ui/PremiumButton';
+import { submitBooking } from '@/lib/submissions';
 
 interface BookingSlot {
   time: string;
@@ -41,6 +43,7 @@ const BookingAssistant = () => {
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [bookingId, setBookingId] = useState('');
   const [slots, setSlots] = useState<BookingSlot[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Mock slot data generation based on date
   useEffect(() => {
@@ -56,11 +59,24 @@ const BookingAssistant = () => {
     }
   }, [date]);
 
-  const handleBooking = () => {
-    if (duration && date && selectedTime) {
-      const id = 'HF-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+  const handleBooking = async () => {
+    if (!(duration && date && selectedTime)) return;
+    const id = 'HF-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    setIsSaving(true);
+    try {
+      await submitBooking({
+        duration: duration as 30 | 60,
+        date: format(date, 'yyyy-MM-dd'),
+        time: selectedTime,
+        bookingId: id,
+      });
       setBookingId(id);
       setBookingConfirmed(true);
+    } catch (error) {
+      console.error('Booking error:', error);
+      toast.error('Could not save your booking. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -223,7 +239,7 @@ const BookingAssistant = () => {
     );
   };
 
-  const handleBookingClick = () => {
+  const handleBookingClick = async () => {
     // Check for double booking (mock)
     const existing = localStorage.getItem('hf_last_booking_date');
     if (existing && date && format(new Date(existing), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
@@ -233,7 +249,7 @@ const BookingAssistant = () => {
 
     if (duration && date && selectedTime) {
       if (date) localStorage.setItem('hf_last_booking_date', date.toISOString());
-      handleBooking();
+      await handleBooking();
     }
   };
 
@@ -328,12 +344,12 @@ const BookingAssistant = () => {
         </AnimatePresence>
 
         <div className="pt-4">
-            <PremiumButton 
+            <PremiumButton
                 className="w-full h-16 text-lg group"
-                disabled={!duration || !date || !selectedTime}
+                disabled={!duration || !date || !selectedTime || isSaving}
                 onClick={handleBookingClick}
             >
-                Confirm Availability & Book <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                {isSaving ? 'Booking…' : 'Confirm Availability & Book'} <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </PremiumButton>
             <p className="text-center text-[10px] text-muted-foreground mt-4 uppercase tracking-[0.2em]">
                 Max Capacity: 30 Explorers Per Slot

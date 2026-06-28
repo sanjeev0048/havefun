@@ -1,0 +1,56 @@
+rules_version = '2';
+
+// HavFun Firestore Security Rules
+//
+// Content (site settings, attractions, safety, faqs, gallery) is PUBLIC READ so
+// the site can render it, but NOT writable from the client — content is managed
+// via the seed script / admin only.
+//
+// User submissions (contactMessages, bookings, waivers) are CREATE-ONLY from the
+// client (a visitor can submit one) but never readable/listable publicly — that
+// data is for staff via the Admin SDK / console.
+//
+// ── SEEDING ──────────────────────────────────────────────────────────────────
+// `npm run seed` writes content with the Web SDK, which these rules BLOCK. To
+// seed: in the Firebase console set the database to "test mode" (or temporarily
+// replace the content rules below with `allow write: if true;`), run the seed,
+// then restore/deploy these rules.
+// ─────────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidContact() {
+      return request.resource.data.keys().hasAll(['name', 'email', 'message'])
+        && request.resource.data.name is string
+        && request.resource.data.email is string
+        && request.resource.data.message is string;
+    }
+
+    // Public, read-only content
+    match /settings/{doc}      { allow read: if true; allow write: if false; }
+    match /attractions/{doc}   { allow read: if true; allow write: if false; }
+    match /safetyFeatures/{doc}{ allow read: if true; allow write: if false; }
+    match /faqs/{doc}          { allow read: if true; allow write: if false; }
+    match /gallery/{doc}       { allow read: if true; allow write: if false; }
+    match /cafeImages/{doc}    { allow read: if true; allow write: if false; }
+    match /waiverImages/{doc}  { allow read: if true; allow write: if false; }
+
+    // Visitor submissions: create-only, not publicly readable
+    match /contactMessages/{doc} {
+      allow create: if isValidContact();
+      allow read, update, delete: if false;
+    }
+    match /bookings/{doc} {
+      allow create: if request.resource.data.keys().hasAll(['date', 'time', 'duration']);
+      allow read, update, delete: if false;
+    }
+    match /waivers/{doc} {
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'participants']);
+      allow read, update, delete: if false;
+    }
+
+    // Deny everything else by default
+    match /{document=**} { allow read, write: if false; }
+  }
+}

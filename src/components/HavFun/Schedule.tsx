@@ -1,9 +1,12 @@
 import { motion } from 'framer-motion';
 import { Calendar as CalendarIcon, ExternalLink } from 'lucide-react';
-import { PRICING_CONFIG } from '@/lib/pricing-config';
+import { PRICING_CONFIG as STATIC_PRICING } from '@/lib/pricing-config';
+import { usePricing } from '@/hooks/useContent';
 import PremiumButton from '@/components/ui/PremiumButton';
 
 const Schedule = () => {
+    const { data } = usePricing();
+    const PRICING_CONFIG = data ?? STATIC_PRICING;
     return (
         <section id="schedule" className="py-24 bg-card/20 border-t border-border/40 relative">
             <div className="container mx-auto px-4 text-center">

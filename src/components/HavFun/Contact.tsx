@@ -2,8 +2,11 @@ import { MapPin, Phone, Mail, Clock, Send, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import PremiumButton from '@/components/ui/PremiumButton';
+import { useSite } from '@/hooks/useContent';
+import { submitContactMessage } from '@/lib/submissions';
 
 const Contact = () => {
+    const { data: site } = useSite();
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -17,22 +20,9 @@ const Contact = () => {
         setIsSubmitting(true);
 
         try {
-            const response = await fetch('http://localhost:5000/api/contact', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                toast.success('Message sent! We will get back to you soon.');
-                setFormData({ name: '', email: '', phone: '', message: '' });
-            } else {
-                toast.error(data.message || 'Failed to send message.');
-            }
+            await submitContactMessage(formData);
+            toast.success('Message sent! We will get back to you soon.');
+            setFormData({ name: '', email: '', phone: '', message: '' });
         } catch (error) {
             console.error('Submission error:', error);
             toast.error('Something went wrong. Please try again later.');
@@ -56,7 +46,7 @@ const Contact = () => {
                                 </div>
                                 <div>
                                     <h4 className="text-lg font-bold mb-1">Our Location</h4>
-                                    <p className="text-muted-foreground">First Floor, 173, Mount Poonamallee Rd, Mugalivakkam, Chennai, Tamil Nadu 600116</p>
+                                    <p className="text-muted-foreground">{site?.address}</p>
                                 </div>
                             </div>
 
@@ -66,7 +56,7 @@ const Contact = () => {
                                 </div>
                                 <div>
                                     <h4 className="text-lg font-bold mb-1">Working Hours</h4>
-                                    <p className="text-muted-foreground">Monday – Sunday: 10AM – 10PM</p>
+                                    <p className="text-muted-foreground">{site?.hours}</p>
                                 </div>
                             </div>
 
@@ -76,7 +66,7 @@ const Contact = () => {
                                 </div>
                                 <div>
                                     <h4 className="text-lg font-bold mb-1">Phone</h4>
-                                    <a href="tel:+917010180483" className="text-muted-foreground hover:text-primary transition-colors">7010180483</a>
+                                    <a href={`tel:${site?.phoneE164 ?? ''}`} className="text-muted-foreground hover:text-primary transition-colors">{site?.phone}</a>
                                 </div>
                             </div>
 
@@ -86,7 +76,7 @@ const Contact = () => {
                                 </div>
                                 <div>
                                     <h4 className="text-lg font-bold mb-1">Email</h4>
-                                    <a href="mailto:havfuntrampolinepark@gmail.com" className="text-muted-foreground hover:text-primary transition-colors">havfuntrampolinepark@gmail.com</a>
+                                    <a href={`mailto:${site?.email ?? ''}`} className="text-muted-foreground hover:text-primary transition-colors">{site?.email}</a>
                                 </div>
                             </div>
                         </div>
@@ -159,7 +149,7 @@ const Contact = () => {
 
                         <div className="rounded-3xl overflow-hidden h-[300px] border border-border/40 shadow-premium">
                             <iframe
-                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15549.988267039014!2d80.1706935!3d13.0197595!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a5260d000632a69%3A0x6b4991264380eb0b!2sHavFun%20Trampoline%20Park!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin"
+                                src={site?.mapsEmbed}
                                 width="100%"
                                 height="100%"
                                 style={{ border: 0 }}

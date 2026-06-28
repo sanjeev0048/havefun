@@ -1,7 +1,15 @@
 import { motion } from 'framer-motion';
 import { Coffee, Pizza, ArrowRight, Play } from 'lucide-react';
+import { useCafe, useCafeImages } from '@/hooks/useContent';
+
+const CATEGORY_ICONS = [<Pizza className="w-8 h-8" />, <Coffee className="w-8 h-8" />];
 
 const Cafe = () => {
+    const { data: cafe } = useCafe();
+    const { data: cafeImages = [] } = useCafeImages();
+    const categories = cafe?.categories ?? [];
+    const img = (i: number) => cafeImages[i]?.image ?? '';
+
     return (
         <section className="py-28 bg-muted/30 relative overflow-hidden">
             {/* Coffee Steam Decoration */}
@@ -40,14 +48,11 @@ const Cafe = () => {
                         </div>
 
                         <p className="text-muted-foreground text-xl leading-relaxed font-light">
-                            Take a break from the action and recharge at our cozy snack lounge! Whether you’re looking for a quick bite or a refreshing drink, we’ve got something for everyone.
+                            {cafe?.intro}
                         </p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            {[
-                                { icon: <Pizza className="w-8 h-8" />, title: "Snacks", desc: "Savory meals & fresh sandwiches.", color: "orange" },
-                                { icon: <Coffee className="w-8 h-8" />, title: "Drinks", desc: "Craft mojitos & refreshing sodas.", color: "blue" }
-                            ].map((item, i) => (
+                            {categories.map((item, i) => (
                                 <motion.div
                                     key={i}
                                     initial={{ opacity: 0, y: 20 }}
@@ -58,7 +63,7 @@ const Cafe = () => {
                                     className="p-8 rounded-[2rem] bg-card/60 backdrop-blur-md border border-white/5 hover:border-primary/20 transition-all flex flex-col gap-4 shadow-xl"
                                 >
                                     <div className={`w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary ring-4 ring-primary/5`}>
-                                        {item.icon}
+                                        {CATEGORY_ICONS[i] ?? CATEGORY_ICONS[0]}
                                     </div>
                                     <div>
                                         <h4 className="text-xl font-bold mb-2 tracking-tight">{item.title}</h4>
@@ -90,7 +95,7 @@ const Cafe = () => {
                                     whileHover={{ scale: 0.98, rotate: -1 }}
                                     className="rounded-[2.5rem] overflow-hidden aspect-[4/5] shadow-2xl relative group"
                                 >
-                                    <img src="https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08314-min-scaled.jpg" alt="Cafe Drink" className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" />
+                                    <img src={img(0)} alt="Cafe Drink" className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" />
                                     <div className="absolute inset-0 bg-primary/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                         <div className="bg-white/10 backdrop-blur-md p-4 rounded-full border border-white/20">
                                             <Play className="fill-white text-white ml-1" />
@@ -101,7 +106,7 @@ const Cafe = () => {
                                     whileHover={{ scale: 0.98, rotate: 1 }}
                                     className="rounded-[2.5rem] overflow-hidden aspect-square shadow-2xl group"
                                 >
-                                    <img src="https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08409-min-scaled.jpg" alt="Cafe Food" className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" />
+                                    <img src={img(1)} alt="Cafe Food" className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" />
                                 </motion.div>
                             </div>
                             <div className="space-y-6">
@@ -109,13 +114,13 @@ const Cafe = () => {
                                     whileHover={{ scale: 0.98, rotate: 1 }}
                                     className="rounded-[2.5rem] overflow-hidden aspect-square shadow-2xl group"
                                 >
-                                    <img src="https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08245-min1-scaled.jpg" alt="Cafe Burger" className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" />
+                                    <img src={img(2)} alt="Cafe Burger" className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" />
                                 </motion.div>
                                 <motion.div
                                     whileHover={{ scale: 0.98, rotate: -1 }}
                                     className="rounded-[2.5rem] overflow-hidden aspect-[4/5] shadow-2xl group"
                                 >
-                                    <img src="https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08382-min-scaled.jpg" alt="Cafe Seating" className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" />
+                                    <img src={img(3)} alt="Cafe Seating" className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" />
                                 </motion.div>
                             </div>
                         </motion.div>

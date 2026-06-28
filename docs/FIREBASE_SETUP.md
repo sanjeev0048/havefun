@@ -1,0 +1,72 @@
+# HavFun — Firebase Setup & Runbook
+
+Backend migrated from Express/Nodemailer to **Firebase** (Firestore), frontend deploys to **Vercel**.
+Project: `havefun-9b5b2`. See [DATA_INVENTORY.md](./DATA_INVENTORY.md) for the original data catalogue.
+
+## Architecture
+
+| Concern | Implementation |
+|---------|----------------|
+| Content (site, pricing, attractions, safety, faqs, gallery, cafe, waiver images) | Firestore, read via TanStack Query hooks (`src/hooks/useContent.ts`) |
+| Images | Compressed to ≤600 KB and stored **inline as base64** on each Firestore doc (one image per doc — a Firestore doc is capped at 1 MB) |
+| Videos | Still bundled local assets (`src/assets/*.mp4`). Too large to inline → **Firebase Storage** is the follow-up (see below) |
+| Contact / Booking / Waiver submissions | Written to Firestore via `src/lib/submissions.ts` (was `localhost:5000`) |
+| Signature | Captured as PNG data URL by `SignaturePad`, stored inline on the waiver doc |
+
+## Firestore collections
+
+```
+settings/site          settings/pricing       settings/cafe
+attractions/*          safetyFeatures/*       faqs/*
+gallery/*              cafeImages/*           waiverImages/*
+contactMessages/*      bookings/*             waivers/*   (visitor submissions)
+```
+
+## First-time setup
+
+1. **Create the Firestore database** in the Firebase console (Native mode) if not already done.
+2. **Config**: web config lives in `src/lib/firebase.ts` (env-overridable). Copy `.env.example` → `.env` for local dev. The web API key is not a secret — Security Rules protect access.
+3. **Build image data** (needs Node ≥ 20.9 for `sharp`; this repo's default Node 18 will fail):
+   ```bash
+   nvm use 22   # or any Node >= 20.9
+   npm run images:build      # downloads + compresses → scripts/generated/image-data.json
+   ```
+4. **Seed Firestore** (runs on any Node):
+   ```bash
+   npm run seed
+   ```
+   ⚠️ The seed writes content via the Web SDK, which the production rules **block**. Seed while the
+   database is in **test mode**, or temporarily set the content collections to `allow write: if true`
+   in the console, then restore the locked rules.
+5. **Deploy security rules** (`firestore.rules`, `storage.rules`) via the console or Firebase CLI:
+   ```bash
+   firebase deploy --only firestore:rules,storage
+   ```
+
+## Deploy to Vercel
+
+- `vercel.json` sets framework=vite, build=`npm run build`, output=`dist`, and an SPA rewrite so
+  `/booking` and `/waiver` resolve on refresh.
+- Set the `VITE_FIREBASE_*` env vars in Vercel (values in `.env.example`) — optional, since
+  `firebase.ts` falls back to the project defaults.
+
+## Editing content later
+
+Change a doc in the Firestore console (or re-run `npm run seed` after editing `scripts/seed-content.mjs`).
+To replace an image, regenerate base64 with `npm run images:build` (update `scripts/images-manifest.mjs`
+first) and re-seed. The site picks up changes within the 1-hour query cache (`staleTime`).
+
+## Follow-ups / known gaps
+
+- **Email notifications lost.** The old Express server emailed staff on new contact/waiver. Firestore
+  only stores data now. Add a Firestore-triggered Cloud Function (or extension) to email
+  `havfuntrampolinepark@gmail.com` on new `contactMessages` / `bookings` / `waivers`.
+- **Videos** (`src/assets/*.mp4`, up to 7 MB) still bundle into the build. Move to Firebase Storage and
+  reference by URL (`videos/` bucket rules already in `storage.rules`).
+- **Booking slots are still mock** (`Math.random()` availability in `BookingAssistant.tsx`). Bookings are
+  now persisted, but real capacity needs a `slots/{date}` model + a transactional write.
+- **Old `server/` directory** (Express/Nodemailer) is no longer used by the frontend — keep for the email
+  templates or remove once Cloud Functions replace it.
+- **Admin view**: submissions are create-only/no public read. Build an authenticated admin page (or use
+  the Firebase console) to review bookings/waivers.
+```

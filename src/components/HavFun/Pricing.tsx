@@ -1,8 +1,11 @@
 import { motion } from 'framer-motion';
 import { Clock, Tag, ShieldCheck, Sparkles, Check } from 'lucide-react';
-import { PRICING_CONFIG, calculateBasePrice } from '@/lib/pricing-config';
+import { PRICING_CONFIG as STATIC_PRICING, calculateBasePrice } from '@/lib/pricing-config';
+import { usePricing } from '@/hooks/useContent';
 
 const Pricing = () => {
+    const { data } = usePricing();
+    const PRICING_CONFIG = data ?? STATIC_PRICING;
     const now = new Date();
     const day = now.getDay();
     const hour = now.getHours();
@@ -13,7 +16,7 @@ const Pricing = () => {
     const base60 = PRICING_CONFIG.basic[60];
 
     const getPrice = (duration: 30 | 60) => {
-        return calculateBasePrice(duration, now, hour);
+        return calculateBasePrice(duration, now, hour, PRICING_CONFIG);
     };
 
     const formatPercent = (dec: number) => Math.round(dec * 100);

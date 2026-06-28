@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// HavFun Storage Rules
+// Used for assets too large to inline in Firestore (the 1 MB doc cap):
+//   videos/    — testimonial videos (public read)
+//   signatures/— waiver signature images (write-only from client; staff read via console)
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /videos/{file=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /signatures/{file=**} {
+      allow read: if false;
+      allow create: if request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

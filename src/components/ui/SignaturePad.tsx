@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 
 interface SignaturePadProps {
   onSign: (signed: boolean) => void;
+  /** Emits the signature as a PNG data URL (or null when cleared) so it can be persisted. */
+  onSignatureChange?: (dataUrl: string | null) => void;
 }
 
-const SignaturePad = ({ onSign }: SignaturePadProps) => {
+const SignaturePad = ({ onSign, onSignatureChange }: SignaturePadProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
@@ -55,8 +57,10 @@ const SignaturePad = ({ onSign }: SignaturePadProps) => {
   };
 
   const stopDrawing = () => {
+    if (!isDrawing) return;
     setIsDrawing(false);
     onSign(true);
+    onSignatureChange?.(canvasRef.current?.toDataURL('image/png') ?? null);
   };
 
   const clear = () => {
@@ -66,6 +70,7 @@ const SignaturePad = ({ onSign }: SignaturePadProps) => {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     onSign(false);
+    onSignatureChange?.(null);
   };
 
   return (
