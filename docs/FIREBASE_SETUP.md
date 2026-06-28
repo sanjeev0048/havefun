@@ -90,11 +90,29 @@ Content writes are gated by `isAdmin()` in `firestore.rules` — deploy those ru
 Note: because content is now `write: if isAdmin()`, re-running `npm run seed` (unauthenticated Web SDK)
 requires test-mode rules, or switch the seed to the Admin SDK.
 
-## Follow-ups / known gaps
+## Email notifications (Vercel `/api/notify`)
 
-- **Email notifications lost.** The old Express server emailed staff on new contact/waiver. Firestore
-  only stores data now. Add a Firestore-triggered Cloud Function (or extension) to email
-  `havfuntrampolinepark@gmail.com` on new `contactMessages` / `bookings` / `waivers`.
+Replaces the old Express/Nodemailer server. A Vercel serverless function (`api/notify.ts`) emails the
+business on every new contact message, booking, and waiver.
+
+**How it works:** after a submission is saved, the site calls `/api/notify`. The function reads SMTP
+settings from Firestore (`settings/smtp`, admin-only) using the Firebase Admin SDK and sends a
+**fixed-recipient, templated** email (it can't be abused to send arbitrary mail).
+
+**Setup:**
+1. **Configure SMTP in the admin:** `/admin` → Site Content → **Email (SMTP)**. Enter host, port,
+   username, password, from/to, and toggle **Enable**. (Gmail: use an *App Password*, host
+   `smtp.gmail.com`, port 587.) The password is write-only in the UI — blank means "keep current".
+2. **Give Vercel a service-account key** so the function can read the admin-only SMTP doc:
+   - Firebase console → Project settings → **Service accounts** → *Generate new private key* → download JSON.
+   - In Vercel → Settings → Environment Variables, add **`FIREBASE_SERVICE_ACCOUNT`** = the full JSON
+     (single line). This is a **secret** — unlike the `VITE_FIREBASE_*` web config.
+3. Deploy. Until both are set, `/api/notify` no-ops gracefully (submissions still save fine).
+
+> Note: `/api/notify` only runs on Vercel. In local `npm run dev` there's no `/api`, so notifications
+> are skipped (submissions still work).
+
+## Follow-ups / known gaps
 - **Videos** (`src/assets/*.mp4`, up to 7 MB) still bundle into the build. Move to Firebase Storage and
   reference by URL (`videos/` bucket rules already in `storage.rules`).
 - **Booking slots are still mock** (`Math.random()` availability in `BookingAssistant.tsx`). Bookings are

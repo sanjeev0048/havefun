@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { COLLECTIONS } from './contentSchema';
 import CollectionEditor from './CollectionEditor';
-import { SiteEditor, PricingEditor, CafeEditor } from './SettingsEditors';
+import { SiteEditor, PricingEditor, CafeEditor, SmtpEditor } from './SettingsEditors';
 
-type SectionId = 'site' | 'pricing' | 'cafe' | string;
+type SectionId = 'site' | 'pricing' | 'cafe' | 'smtp' | string;
 
 const SETTINGS_SECTIONS = [
   { id: 'site', label: 'Site Info' },
   { id: 'pricing', label: 'Pricing' },
   { id: 'cafe', label: 'Cafe' },
+  { id: 'smtp', label: 'Email (SMTP)' },
 ];
 
 const ContentManager = () => {
@@ -24,6 +25,7 @@ const ContentManager = () => {
     if (section === 'site') return <SiteEditor />;
     if (section === 'pricing') return <PricingEditor />;
     if (section === 'cafe') return <CafeEditor />;
+    if (section === 'smtp') return <SmtpEditor />;
     const def = COLLECTIONS.find((c) => c.name === section);
     return def ? <CollectionEditor def={def} /> : null;
   };

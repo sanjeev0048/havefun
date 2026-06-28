@@ -36,8 +36,10 @@ service cloud.firestore {
         ];
     }
 
-    // Public read; only allowlisted admins may write (CMS editing).
-    match /settings/{doc}      { allow read: if true; allow write: if isAdmin(); }
+    // Public read for content settings; only allowlisted admins may write (CMS editing).
+    // settings/smtp holds email credentials — never public; admin read/write only.
+    match /settings/{doc}      { allow read: if doc != 'smtp'; allow write: if isAdmin(); }
+    match /settings/smtp       { allow read: if isAdmin();    allow write: if isAdmin(); }
     match /attractions/{doc}   { allow read: if true; allow write: if isAdmin(); }
     match /safetyFeatures/{doc}{ allow read: if true; allow write: if isAdmin(); }
     match /faqs/{doc}          { allow read: if true; allow write: if isAdmin(); }

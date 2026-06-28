@@ -52,29 +52,54 @@ export interface WaiverInput {
   pricing: { subtotal: number; gst: number; total: number };
 }
 
+/**
+ * Best-effort email notification via the Vercel function (/api/notify).
+ * Never throws — a failed/absent notifier must not block the user's submission.
+ * In local dev there's no /api route, so this simply no-ops.
+ */
+async function notify(type: 'contact' | 'booking' | 'waiver', data: Record<string, unknown>) {
+  try {
+    await fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, data }),
+    });
+  } catch {
+    /* ignore — notifications are non-critical */
+  }
+}
+
 export async function submitContactMessage(input: ContactInput) {
-  return addDoc(collection(db, 'contactMessages'), {
+  const ref = await addDoc(collection(db, 'contactMessages'), {
     ...input,
     phone: input.phone ?? '',
     status: 'new',
     createdAt: serverTimestamp(),
   });
+  void notify('contact', { ...input });
+  return ref;
 }
 
 export async function submitBooking(input: BookingInput) {
-  return addDoc(collection(db, 'bookings'), {
+  const ref = await addDoc(collection(db, 'bookings'), {
     ...input,
     status: 'confirmed',
     createdAt: serverTimestamp(),
   });
+  void notify('booking', { ...input });
+  return ref;
 }
 
 export async function submitWaiver(input: WaiverInput) {
-  return addDoc(collection(db, 'waivers'), {
+  const ref = await addDoc(collection(db, 'waivers'), {
     ...input,
     status: 'signed',
     createdAt: serverTimestamp(),
   });
+  // Omit the base64 signature from the email payload — not needed and large.
+  const { signature, ...summary } = input;
+  void notify('waiver', summary);
+  return ref;
 }
 
 // ---- Admin reads (allowlisted users only; enforced by Firestore rules) ----

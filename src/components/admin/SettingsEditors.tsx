@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useSite, usePricing, useCafe } from '@/hooks/useContent';
 import { saveSettings } from '@/lib/contentAdmin';
+import { db } from '@/lib/firebase';
 import PremiumButton from '@/components/ui/PremiumButton';
 import ImageField from './ImageField';
 
@@ -177,6 +179,120 @@ export const CafeEditor = () => {
           </div>
         ))}
       </div>
+      <SaveBar onSave={save} saving={saving} />
+    </div>
+  );
+};
+
+// ---- SMTP / Email ----
+interface SmtpForm {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string; // write-only; blank = keep existing
+  fromName: string;
+  fromEmail: string;
+  toEmail: string;
+  hasPass: boolean;
+}
+
+export const SmtpEditor = () => {
+  const [form, setForm] = useState<SmtpForm | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const snap = await getDoc(doc(db, 'settings', 'smtp'));
+      const d = (snap.data() ?? {}) as Partial<SmtpForm> & { pass?: string };
+      setForm({
+        enabled: d.enabled ?? false,
+        host: d.host ?? '',
+        port: d.port ?? 587,
+        secure: d.secure ?? false,
+        user: d.user ?? '',
+        pass: '', // never load the stored password into the field
+        fromName: d.fromName ?? 'HavFun',
+        fromEmail: d.fromEmail ?? '',
+        toEmail: d.toEmail ?? 'havfuntrampolinepark@gmail.com',
+        hasPass: !!d.pass,
+      });
+    })().catch(() => toast.error('Could not load SMTP settings (admin only).'));
+  }, []);
+
+  if (!form) return <Loading />;
+  const set = (k: keyof SmtpForm, v: unknown) => setForm((p) => ({ ...p!, [k]: v }));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        enabled: form.enabled,
+        host: form.host,
+        port: form.port,
+        secure: form.secure,
+        user: form.user,
+        fromName: form.fromName,
+        fromEmail: form.fromEmail,
+        toEmail: form.toEmail,
+      };
+      // Only overwrite the password when a new one is typed.
+      if (form.pass.trim()) payload.pass = form.pass.trim();
+      await saveSettings('smtp', payload);
+      toast.success('SMTP settings saved');
+      setForm((p) => ({ ...p!, pass: '', hasPass: p!.hasPass || !!p!.pass.trim() }));
+    } catch {
+      toast.error('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-lg font-bold">Email (SMTP)</h3>
+        <p className="text-sm text-muted-foreground">
+          Get notified by email on new bookings, waivers, and contact messages. Sent via Vercel.
+        </p>
+      </div>
+
+      <label className="flex items-center gap-3 cursor-pointer">
+        <input type="checkbox" className="w-5 h-5 accent-primary" checked={form.enabled} onChange={(e) => set('enabled', e.target.checked)} />
+        <span className="text-sm font-medium">Enable email notifications</span>
+      </label>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Text label="SMTP Host (e.g. smtp.gmail.com)" value={form.host} onChange={(v) => set('host', v)} />
+        <Num label="Port (587 or 465)" value={form.port} onChange={(v) => set('port', v)} />
+        <Text label="Username" value={form.user} onChange={(v) => set('user', v)} />
+        <div className="space-y-2">
+          <label className="text-xs uppercase tracking-widest text-muted-foreground font-bold">
+            Password {form.hasPass && <span className="text-primary normal-case">(set — leave blank to keep)</span>}
+          </label>
+          <input
+            type="password"
+            placeholder={form.hasPass ? '••••••••' : 'App password'}
+            className="w-full bg-background border border-border/40 rounded-xl px-4 py-2.5 outline-none focus:border-primary transition-colors"
+            value={form.pass}
+            onChange={(e) => set('pass', e.target.value)}
+          />
+        </div>
+        <Text label="From name" value={form.fromName} onChange={(v) => set('fromName', v)} />
+        <Text label="From email" value={form.fromEmail} onChange={(v) => set('fromEmail', v)} />
+        <Text label="Send notifications to" value={form.toEmail} onChange={(v) => set('toEmail', v)} />
+      </div>
+
+      <label className="flex items-center gap-3 cursor-pointer">
+        <input type="checkbox" className="w-5 h-5 accent-primary" checked={form.secure} onChange={(e) => set('secure', e.target.checked)} />
+        <span className="text-sm">Use TLS/SSL (secure — usually on for port 465)</span>
+      </label>
+
+      <p className="text-[11px] text-muted-foreground">
+        Tip: for Gmail, use an <b>App Password</b> (not your account password), host <code>smtp.gmail.com</code>, port 587.
+      </p>
+
       <SaveBar onSave={save} saving={saving} />
     </div>
   );
