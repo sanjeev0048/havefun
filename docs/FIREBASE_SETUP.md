@@ -73,6 +73,23 @@ contact messages. Access is restricted to an **email allowlist**.
 Then visit `/admin`, sign in, and review submissions. To add another admin, add their email
 to both lists and create their user in the console.
 
+### Content editing (CMS)
+
+`/admin` has two views: **Submissions** and **Site Content**. Under *Site Content* an admin can
+full-CRUD everything the site renders:
+- **Settings**: Site Info (name, contact, hours, logo/banner/about images, maps, Razorpay link),
+  Pricing (all prices, offers, GST, hours), Cafe (heading, intro, categories).
+- **Collections** (add/edit/delete): Attractions, Safety Features, FAQs, Gallery, Cafe Images.
+  Waiver Images are edit-only (fixed section ids).
+
+Image uploads are compressed in the browser (canvas) to ≤600 KB and stored inline as base64,
+matching the seed pipeline. Saved changes invalidate the site's query cache, so the public site
+reflects edits within the hour cache window (or immediately on next load).
+
+Content writes are gated by `isAdmin()` in `firestore.rules` — deploy those rules for editing to work.
+Note: because content is now `write: if isAdmin()`, re-running `npm run seed` (unauthenticated Web SDK)
+requires test-mode rules, or switch the seed to the Admin SDK.
+
 ## Follow-ups / known gaps
 
 - **Email notifications lost.** The old Express server emailed staff on new contact/waiver. Firestore

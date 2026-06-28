@@ -36,14 +36,14 @@ service cloud.firestore {
         ];
     }
 
-    // Public, read-only content
-    match /settings/{doc}      { allow read: if true; allow write: if false; }
-    match /attractions/{doc}   { allow read: if true; allow write: if false; }
-    match /safetyFeatures/{doc}{ allow read: if true; allow write: if false; }
-    match /faqs/{doc}          { allow read: if true; allow write: if false; }
-    match /gallery/{doc}       { allow read: if true; allow write: if false; }
-    match /cafeImages/{doc}    { allow read: if true; allow write: if false; }
-    match /waiverImages/{doc}  { allow read: if true; allow write: if false; }
+    // Public read; only allowlisted admins may write (CMS editing).
+    match /settings/{doc}      { allow read: if true; allow write: if isAdmin(); }
+    match /attractions/{doc}   { allow read: if true; allow write: if isAdmin(); }
+    match /safetyFeatures/{doc}{ allow read: if true; allow write: if isAdmin(); }
+    match /faqs/{doc}          { allow read: if true; allow write: if isAdmin(); }
+    match /gallery/{doc}       { allow read: if true; allow write: if isAdmin(); }
+    match /cafeImages/{doc}    { allow read: if true; allow write: if isAdmin(); }
+    match /waiverImages/{doc}  { allow read: if true; allow write: if isAdmin(); }
 
     // Visitor submissions: create-only, not publicly readable
     match /contactMessages/{doc} {

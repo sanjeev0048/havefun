@@ -20,6 +20,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import PremiumButton from '@/components/ui/PremiumButton';
+import ContentManager from '@/components/admin/ContentManager';
+import { cn } from '@/lib/utils';
 
 const fmtDate = (ts: WithMeta['createdAt']): string => {
   if (!ts) return '—';
@@ -159,6 +161,7 @@ function Section<T>({
 const Admin = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<'submissions' | 'content'>('submissions');
 
   useEffect(() => onAuthStateChanged(auth, (u) => {
     setUser(u);
@@ -190,8 +193,27 @@ const Admin = () => {
         </PremiumButton>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 md:px-6 py-8">
-        <Tabs defaultValue="bookings" className="space-y-6">
+      <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 space-y-6">
+        {/* Top-level view switch */}
+        <div className="inline-flex p-1 rounded-2xl border border-border/40 bg-card/30">
+          {(['submissions', 'content'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                'px-5 py-2 rounded-xl text-sm font-medium capitalize transition-colors',
+                view === v ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {v === 'content' ? 'Site Content' : 'Submissions'}
+            </button>
+          ))}
+        </div>
+
+        {view === 'content' ? (
+          <ContentManager />
+        ) : (
+          <Tabs defaultValue="bookings" className="space-y-6">
           <TabsList>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
             <TabsTrigger value="waivers">Waivers</TabsTrigger>
@@ -253,7 +275,8 @@ const Admin = () => {
               ]}
             />
           </TabsContent>
-        </Tabs>
+          </Tabs>
+        )}
       </main>
     </div>
   );
