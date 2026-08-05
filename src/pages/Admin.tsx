@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
-import { useQuery } from '@tanstack/react-query';
-import { Loader2, LogOut, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Loader2, LogOut, ShieldAlert, ShieldCheck, Calendar as CalendarIcon, ChevronLeft, ChevronRight, XCircle } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { isAdminEmail } from '@/lib/admin';
 import {
   listBookings,
   listContactMessages,
   listWaivers,
+  cancelBooking,
   type WithMeta,
+  type BookingInput,
 } from '@/lib/submissions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -19,13 +21,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import PremiumButton from '@/components/ui/PremiumButton';
 import ContentManager from '@/components/admin/ContentManager';
 import { cn } from '@/lib/utils';
+import { format, isSameDay } from 'date-fns';
+import { toast } from 'sonner';
 
 const fmtDate = (ts: WithMeta['createdAt']): string => {
   if (!ts) return '—';
-  // Firestore Timestamp instance or plain {seconds}
   const anyTs = ts as unknown as { toDate?: () => Date; seconds?: number };
   const ms =
     typeof anyTs.toDate === 'function'
@@ -110,18 +115,43 @@ function NotAuthorized({ email }: { email: string }) {
   );
 }
 
-function Section<T>({
+function Section<T extends { date?: string; paymentStatus?: string; paymentId?: string; id: string }>({
   queryKey,
   queryFn,
   columns,
   empty,
+  isBookings = false,
 }: {
   queryKey: string;
   queryFn: () => Promise<T[]>;
   columns: { header: string; cell: (row: T) => React.ReactNode }[];
   empty: string;
+  isBookings?: boolean;
 }) {
   const { data, isLoading, error } = useQuery({ queryKey: [queryKey], queryFn });
+  const [page, setPage] = useState(1);
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const itemsPerPage = 20;
+
+  const filteredData = useMemo(() => {
+    if (!data) return [];
+    let result = data;
+    if (isBookings && filterDate) {
+      result = result.filter((item) => {
+        if (!item.date) return false;
+        const itemDate = new Date(item.date);
+        return isSameDay(itemDate, filterDate);
+      });
+    }
+    return result;
+  }, [data, filterDate, isBookings]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filterDate]);
 
   if (isLoading)
     return (
@@ -129,31 +159,92 @@ function Section<T>({
         <Loader2 className="w-5 h-5 animate-spin" /> Loading…
       </div>
     );
-  if (error)
-    return <p className="text-destructive py-10 text-center text-sm">Failed to load. Check your access.</p>;
-  if (!data || data.length === 0)
-    return <p className="text-muted-foreground py-10 text-center text-sm">{empty}</p>;
+  if (error) {
+    console.error("Section query error:", error);
+    return <p className="text-destructive py-10 text-center text-sm">Failed to load. {(error as Error).message || JSON.stringify(error)}</p>;
+  }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border/40">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((c) => (
-              <TableHead key={c.header}>{c.header}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.map((row, i) => (
-            <TableRow key={i}>
-              {columns.map((c) => (
-                <TableCell key={c.header}>{c.cell(row)}</TableCell>
+    <div className="space-y-4">
+      {isBookings && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Popover>
+              <PopoverTrigger asChild>
+                <PremiumButton variant="secondary" className="gap-2 h-9 px-3">
+                  <CalendarIcon className="w-4 h-4" /> 
+                  {filterDate ? format(filterDate, 'PPP') : 'Filter by Date'}
+                </PremiumButton>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={filterDate}
+                  onSelect={setFilterDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            {filterDate && (
+               <button onClick={() => setFilterDate(undefined)} className="text-xs text-muted-foreground hover:text-foreground underline">
+                 Clear filter
+               </button>
+            )}
+          </div>
+          <span className="text-sm text-muted-foreground">Total: {filteredData.length}</span>
+        </div>
+      )}
+
+      {!filteredData || filteredData.length === 0 ? (
+        <p className="text-muted-foreground py-10 text-center text-sm">{empty}</p>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-border/40">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map((c) => (
+                  <TableHead key={c.header}>{c.header}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedData.map((row, i) => (
+                <TableRow key={i}>
+                  {columns.map((c) => (
+                    <TableCell key={c.header}>{c.cell(row)}</TableCell>
+                  ))}
+                </TableRow>
               ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-4">
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <PremiumButton 
+              variant="secondary" 
+              className="h-8 px-3"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </PremiumButton>
+            <PremiumButton 
+              variant="secondary" 
+              className="h-8 px-3"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </PremiumButton>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -162,11 +253,47 @@ const Admin = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'submissions' | 'content'>('submissions');
+  const qc = useQueryClient();
+  const [refundingId, setRefundingId] = useState<string | null>(null);
 
   useEffect(() => onAuthStateChanged(auth, (u) => {
     setUser(u);
     setLoading(false);
   }), []);
+
+  const handleRefund = async (booking: any) => {
+    if (!booking.paymentId) {
+      toast.error("No Payment ID found. Cannot refund.");
+      return;
+    }
+    const confirmRefund = window.confirm(`Are you sure you want to cancel and refund booking ${booking.bookingId}?`);
+    if (!confirmRefund) return;
+
+    setRefundingId(booking.id);
+    try {
+      const res = await fetch('/api/razorpay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'refundPayment',
+          payload: { payment_id: booking.paymentId }
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error('Refund API failed');
+      }
+
+      await cancelBooking(booking.id);
+      qc.invalidateQueries({ queryKey: ['admin-bookings'] });
+      toast.success(`Booking ${booking.bookingId} cancelled and refunded successfully.`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Failed to refund payment");
+    } finally {
+      setRefundingId(null);
+    }
+  };
 
   if (loading)
     return (
@@ -194,7 +321,6 @@ const Admin = () => {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 space-y-6">
-        {/* Top-level view switch */}
         <div className="inline-flex p-1 rounded-2xl border border-border/40 bg-card/30">
           {(['submissions', 'content'] as const).map((v) => (
             <button
@@ -225,12 +351,37 @@ const Admin = () => {
               queryKey="admin-bookings"
               queryFn={listBookings}
               empty="No bookings yet."
+              isBookings={true}
               columns={[
-                { header: 'Booking ID', cell: (r) => <span className="font-mono text-primary">{r.bookingId}</span> },
-                { header: 'Date', cell: (r) => r.date },
-                { header: 'Time', cell: (r) => r.time },
-                { header: 'Duration', cell: (r) => `${r.duration} min` },
-                { header: 'Submitted', cell: (r) => fmtDate(r.createdAt) },
+                { header: 'Booking ID', cell: (r: any) => <span className="font-mono text-primary">{r.bookingId}</span> },
+                { header: 'Name', cell: (r: any) => r.userName || '—' },
+                { header: 'Date/Time', cell: (r: any) => `${r.date} ${r.time}` },
+                { header: 'Guests', cell: (r: any) => r.participantsCount || 1 },
+                { header: 'Amount', cell: (r: any) => r.amount ? `₹${r.amount}` : '—' },
+                { header: 'Status', cell: (r: any) => (
+                  <span className={cn(
+                    "px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap",
+                    r.paymentStatus === 'SUCCESS' ? "bg-green-500/20 text-green-500 border border-green-500/30" : 
+                    r.paymentStatus === 'FAILED' ? "bg-destructive/20 text-destructive border border-destructive/30" :
+                    r.paymentStatus === 'CANCELLED_REFUNDED' ? "bg-amber-500/20 text-amber-500 border border-amber-500/30" :
+                    "bg-muted text-muted-foreground border border-border"
+                  )}>
+                    {r.paymentStatus === 'CANCELLED_REFUNDED' ? 'REFUNDED' : r.paymentStatus || 'PENDING'}
+                  </span>
+                )},
+                { header: 'Submitted', cell: (r: any) => fmtDate(r.createdAt) },
+                { header: 'Actions', cell: (r: any) => (
+                  r.paymentStatus === 'SUCCESS' ? (
+                     <PremiumButton 
+                        variant="secondary" 
+                        className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10 border border-destructive/30 bg-destructive/5"
+                        onClick={() => handleRefund(r)}
+                        disabled={refundingId === r.id}
+                     >
+                        {refundingId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><XCircle className="w-3 h-3 mr-1" /> Refund</>}
+                     </PremiumButton>
+                  ) : <span className="text-muted-foreground text-xs">—</span>
+                )},
               ]}
             />
           </TabsContent>
@@ -241,22 +392,22 @@ const Admin = () => {
               queryFn={listWaivers}
               empty="No waivers yet."
               columns={[
-                { header: 'Name', cell: (r) => r.name },
-                { header: 'Email', cell: (r) => r.email },
-                { header: 'Phone', cell: (r) => r.phone },
-                { header: 'Participants', cell: (r) => r.participants?.map((p) => p.name).join(', ') },
-                { header: 'Visit', cell: (r) => `${r.visitDate?.slice(0, 10)} ${r.visitTime}` },
-                { header: 'Total', cell: (r) => `₹${r.pricing?.total?.toFixed(0) ?? '—'}` },
+                { header: 'Name', cell: (r: any) => r.name },
+                { header: 'Email', cell: (r: any) => r.email },
+                { header: 'Phone', cell: (r: any) => r.phone },
+                { header: 'Participants', cell: (r: any) => r.participants?.map((p: any) => p.name).join(', ') },
+                { header: 'Visit', cell: (r: any) => `${r.visitDate?.slice(0, 10)} ${r.visitTime}` },
+                { header: 'Total', cell: (r: any) => `₹${r.pricing?.total?.toFixed(0) ?? '—'}` },
                 {
                   header: 'Signature',
-                  cell: (r) =>
+                  cell: (r: any) =>
                     r.signature ? (
                       <img src={r.signature} alt="signature" className="h-10 bg-white/5 rounded" />
                     ) : (
                       '—'
                     ),
                 },
-                { header: 'Submitted', cell: (r) => fmtDate(r.createdAt) },
+                { header: 'Submitted', cell: (r: any) => fmtDate(r.createdAt) },
               ]}
             />
           </TabsContent>
@@ -267,11 +418,11 @@ const Admin = () => {
               queryFn={listContactMessages}
               empty="No messages yet."
               columns={[
-                { header: 'Name', cell: (r) => r.name },
-                { header: 'Email', cell: (r) => r.email },
-                { header: 'Phone', cell: (r) => r.phone || '—' },
-                { header: 'Message', cell: (r) => <span className="max-w-xs block whitespace-pre-wrap">{r.message}</span> },
-                { header: 'Submitted', cell: (r) => fmtDate(r.createdAt) },
+                { header: 'Name', cell: (r: any) => r.name },
+                { header: 'Email', cell: (r: any) => r.email },
+                { header: 'Phone', cell: (r: any) => r.phone || '—' },
+                { header: 'Message', cell: (r: any) => <span className="max-w-xs block whitespace-pre-wrap">{r.message}</span> },
+                { header: 'Submitted', cell: (r: any) => fmtDate(r.createdAt) },
               ]}
             />
           </TabsContent>

@@ -48,6 +48,15 @@ export interface WaiverImage { id: string; image: string; order: number; }
 
 async function getSettingsDoc<T>(id: string): Promise<T | null> {
   const snap = await getDoc(doc(db, 'settings', id));
+  if (id === 'site') {
+      const data = snap.exists() ? snap.data() : {};
+      return {
+          ...data,
+          logo: data.logo || 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?q=80&w=512&auto=format&fit=crop', // fallback logo
+          banner: data.banner || 'https://images.unsplash.com/photo-1518605368461-1eb5d4e116e0?q=80&w=1600&auto=format&fit=crop', // fallback banner
+          aboutImage: data.aboutImage || 'https://images.unsplash.com/photo-1551817958-c9aa14ffe524?q=80&w=1600&auto=format&fit=crop' // fallback about
+      } as T;
+  }
   return snap.exists() ? (snap.data() as T) : null;
 }
 

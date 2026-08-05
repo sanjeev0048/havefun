@@ -55,8 +55,8 @@ service cloud.firestore {
     }
     match /bookings/{doc} {
       allow create: if request.resource.data.keys().hasAll(['date', 'time', 'duration']);
-      allow read: if isAdmin();
-      allow update, delete: if false;
+      allow read, update: if isAdmin();
+      allow delete: if false;
     }
     match /waivers/{doc} {
       allow create: if request.resource.data.keys().hasAll(['name', 'email', 'participants']);
