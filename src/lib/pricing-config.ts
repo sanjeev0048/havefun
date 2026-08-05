@@ -35,19 +35,27 @@ export const PRICING_CONFIG = {
 /**
  * Helper function to calculate the final price based on the selected criteria.
  * This can be used in both the Pricing component and the Waiver flow.
+ *
+ * `config` defaults to the bundled PRICING_CONFIG but accepts live pricing fetched
+ * from Firestore (see usePricing) so prices can be edited without a redeploy.
  */
-export const calculateBasePrice = (duration: 30 | 60, visitDate: Date, visitHour: number) => {
+export const calculateBasePrice = (
+    duration: 30 | 60,
+    visitDate: Date,
+    visitHour: number,
+    config: typeof PRICING_CONFIG = PRICING_CONFIG
+) => {
     const isWeekend = visitDate.getDay() === 0 || visitDate.getDay() === 6;
-    const isWeekdayOfferTime = !isWeekend && visitHour >= PRICING_CONFIG.hours.weekdayOfferStart && visitHour < PRICING_CONFIG.hours.weekdayOfferEnd;
-    const isAfter5OrWeekend = isWeekend || visitHour >= PRICING_CONFIG.hours.offPeakStartDay;
+    const isWeekdayOfferTime = !isWeekend && visitHour >= config.hours.weekdayOfferStart && visitHour < config.hours.weekdayOfferEnd;
+    const isAfter5OrWeekend = isWeekend || visitHour >= config.hours.offPeakStartDay;
 
     if (isWeekdayOfferTime) {
-        return PRICING_CONFIG.offers.weekdaySpecial;
+        return config.offers.weekdaySpecial;
     }
 
-    const basicPrice = PRICING_CONFIG.basic[duration];
+    const basicPrice = config.basic[duration];
     if (isAfter5OrWeekend) {
-        return Math.round(basicPrice * (1 - PRICING_CONFIG.offers.offPeakDiscount));
+        return Math.round(basicPrice * (1 - config.offers.offPeakDiscount));
     }
 
     return basicPrice;

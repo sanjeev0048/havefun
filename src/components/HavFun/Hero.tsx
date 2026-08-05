@@ -2,15 +2,21 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Tag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PremiumButton from '@/components/ui/PremiumButton';
+import { useSite, usePricing } from '@/hooks/useContent';
+
+const to12h = (h: number) => (h > 12 ? `${h - 12}pm` : `${h}am`);
 
 const Hero = () => {
+    const { data: site } = useSite();
+    const { data: pricing } = usePricing();
+
     return (
         <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
             {/* Background Image from HavFun */}
             <div
                 className="absolute inset-0 bg-cover bg-center z-0 scale-105 animate-slow-zoom"
                 style={{
-                    backgroundImage: 'url("https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08279-min-scaled.jpg")',
+                    backgroundImage: site?.banner ? `url("${site.banner}")` : undefined,
                 }}
             ></div>
             <div className="absolute inset-0 bg-black/60 z-10" />
@@ -21,11 +27,13 @@ const Hero = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8 }}
                 >
-                    <img
-                        src="https://havfuntrampolinepark.com/wp-content/uploads/2024/10/IMG_7567-e1739166515549.png"
-                        alt="HavFun Logo"
-                        className="h-32 md:h-48 mx-auto mb-8 drop-shadow-neon"
-                    />
+                    {site?.logo && (
+                        <img
+                            src={site.logo}
+                            alt="HavFun Logo"
+                            className="h-32 md:h-48 mx-auto mb-8 drop-shadow-neon"
+                        />
+                    )}
 
                     <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 tracking-tight">
                         Where Thrills, Laughter, <br /> and Memories <span className="text-primary italic">Take Flight</span>.
@@ -41,7 +49,7 @@ const Hero = () => {
                         transition={{ delay: 1 }}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/40 text-primary-foreground text-sm font-bold mb-10 backdrop-blur-md"
                     >
-                        <Tag className="w-4 h-4" /> Weekday Special: ₹99 (10am - 5pm)
+                        <Tag className="w-4 h-4" /> Weekday Special: ₹{pricing?.offers.weekdaySpecial ?? 99} ({pricing ? `${to12h(pricing.hours.weekdayOfferStart)} - ${to12h(pricing.hours.weekdayOfferEnd)}` : '10am - 5pm'})
                     </motion.div>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">

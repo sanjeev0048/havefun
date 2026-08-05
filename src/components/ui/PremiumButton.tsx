@@ -1,24 +1,21 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { ReactNode } from 'react';
+import { ReactNode, forwardRef } from 'react';
 
-interface PremiumButtonProps {
-  onClick?: () => void;
+interface PremiumButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   variant?: 'primary' | 'secondary' | 'ghost';
-  disabled?: boolean;
-  className?: string;
-  type?: 'button' | 'submit' | 'reset';
 }
 
-const PremiumButton = ({
+const PremiumButton = forwardRef<HTMLButtonElement, PremiumButtonProps>(({
   onClick,
   children,
   variant = 'primary',
   disabled = false,
   className,
-  type = 'button'
-}: PremiumButtonProps) => {
+  type = 'button',
+  ...props
+}, ref) => {
   const variants = {
     primary: 'bg-gradient-neon text-primary-foreground shadow-neon hover:shadow-[0_0_50px_hsl(var(--neon-lime)/0.5)]',
     secondary: 'bg-card/80 backdrop-blur-xl border border-border/40 text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary',
@@ -27,11 +24,13 @@ const PremiumButton = ({
 
   return (
     <motion.button
+      ref={ref}
       type={type}
       whileHover={!disabled ? { y: -3, scale: 1.02 } : {}}
       whileTap={!disabled ? { scale: 0.98 } : {}}
       onClick={onClick}
       disabled={disabled}
+      {...props}
       className={cn(
         'relative px-8 py-4 rounded-full font-medium transition-all duration-500 flex items-center justify-center gap-3 overflow-hidden',
         variants[variant],
@@ -51,6 +50,6 @@ const PremiumButton = ({
       </span>
     </motion.button>
   );
-};
+});
 
 export default PremiumButton;

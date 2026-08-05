@@ -8,24 +8,23 @@ import {
   CheckCircle2, 
   AlertCircle,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  CreditCard
 } from 'lucide-react';
 import { format, addDays, isSameDay, isBefore, startOfDay } from 'date-fns';
+import { toast } from 'sonner';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import PremiumButton from '@/components/ui/PremiumButton';
+import { submitBooking } from '@/lib/submissions';
+import { usePricing } from '@/hooks/useContent';
 
 interface BookingSlot {
   time: string;
   capacity: number;
   booked: number;
 }
-
-const DURATIONS = [
-  { label: '30 Minutes', value: 30 },
-  { label: '1 Hour', value: 60 },
-];
 
 const GENERATED_SLOTS = [
   "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", 
@@ -34,13 +33,49 @@ const GENERATED_SLOTS = [
   "18:00", "18:30", "19:00", "19:30", "20:00"
 ];
 
+// Helper to load Razorpay script
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => {
+      resolve(true);
+    };
+    script.onerror = () => {
+      resolve(false);
+    };
+    document.body.appendChild(script);
+  });
+};
+
 const BookingAssistant = () => {
+  const { data: pricingData } = usePricing();
+  const durations = [
+    { label: '30 Minutes', value: 30, price: pricingData?.basic[30] || 500 },
+    { label: '1 Hour', value: 60, price: pricingData?.basic[60] || 800 },
+  ];
+
+  // State for booking steps
   const [duration, setDuration] = useState<number | null>(null);
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  
+  // State for user details
+  const [userDetails, setUserDetails] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    participantsCount: 1,
+  });
+
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [bookingId, setBookingId] = useState('');
   const [slots, setSlots] = useState<BookingSlot[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Mock slot data generation based on date
   useEffect(() => {
@@ -48,19 +83,111 @@ const BookingAssistant = () => {
       const newSlots = GENERATED_SLOTS.map(time => ({
         time,
         capacity: 30,
-        // Randomly fill some slots for demonstration
         booked: Math.floor(Math.random() * 35) > 25 ? 30 : Math.floor(Math.random() * 25)
       }));
       setSlots(newSlots);
-      setSelectedTime(null); // Reset time when date changes
+      setSelectedTime(null);
     }
   }, [date]);
 
-  const handleBooking = () => {
-    if (duration && date && selectedTime) {
-      const id = 'HF-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-      setBookingId(id);
-      setBookingConfirmed(true);
+  useEffect(() => {
+    loadRazorpayScript();
+  }, []);
+
+  const calculateAmount = () => {
+    const selectedDuration = durations.find(d => d.value === duration);
+    if (!selectedDuration) return 0;
+    return selectedDuration.price * userDetails.participantsCount;
+  };
+
+  const handleBooking = async () => {
+    if (!(duration && date && selectedTime && userDetails.name && userDetails.email && userDetails.phone)) return;
+    
+    setIsSaving(true);
+    const amount = calculateAmount();
+    const generatedBookingId = 'HF-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+    try {
+      // 1. Create order on backend
+      const orderRes = await fetch('/api/razorpay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createOrder', payload: { amount } })
+      });
+      const order = await orderRes.json();
+
+      if (!order.id) {
+        throw new Error('Failed to create order');
+      }
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_TMC1y806KEycFK', // Key ID
+        amount: order.amount,
+        currency: order.currency,
+        name: 'HavFun Trampoline Park',
+        description: `Ticket Booking - ${userDetails.participantsCount} Participants`,
+        order_id: order.id,
+        handler: async function (response: any) {
+          try {
+            toast.loading('Verifying payment...', { id: 'payment-verify' });
+            // 3. Verify payment
+            const verifyRes = await fetch('/api/razorpay', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'verifyPayment', payload: response })
+            });
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.verified) {
+              // 4. Save to Firestore
+              await submitBooking({
+                duration: duration as 30 | 60,
+                date: format(date, 'yyyy-MM-dd'),
+                time: selectedTime,
+                bookingId: generatedBookingId,
+                userName: userDetails.name,
+                userEmail: userDetails.email,
+                userPhone: userDetails.phone,
+                participantsCount: userDetails.participantsCount,
+                amount: amount,
+                paymentId: response.razorpay_payment_id,
+                orderId: response.razorpay_order_id,
+                paymentStatus: 'SUCCESS'
+              });
+              
+              setBookingId(generatedBookingId);
+              setBookingConfirmed(true);
+              toast.success('Payment verified and booking confirmed!', { id: 'payment-verify' });
+            } else {
+              toast.error('Payment verification failed.', { id: 'payment-verify' });
+            }
+          } catch (error) {
+             toast.error('Error confirming booking.', { id: 'payment-verify' });
+          } finally {
+             setIsSaving(false);
+          }
+        },
+        prefill: {
+          name: userDetails.name,
+          email: userDetails.email,
+          contact: userDetails.phone
+        },
+        theme: {
+          color: '#E11D48' // primary color
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+         toast.error('Payment failed or cancelled.');
+         setIsSaving(false);
+      });
+      rzp.open();
+    } catch (error) {
+      console.error('Booking error:', error);
+      toast.error('Could not initiate payment. Please try again.');
+      setIsSaving(false);
     }
   };
 
@@ -68,13 +195,63 @@ const BookingAssistant = () => {
     return slots.find(s => s.booked < s.capacity);
   };
 
+  const renderUserDetails = () => (
+    <div className="space-y-6">
+      <h3 className="text-sm font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
+        <Users className="w-4 h-4" /> Guest Details
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input 
+          type="text" 
+          placeholder="Full Name" 
+          required
+          className="w-full bg-card/40 border border-border/40 rounded-xl px-4 py-3 outline-none focus:border-primary transition-colors"
+          value={userDetails.name}
+          onChange={(e) => setUserDetails({ ...userDetails, name: e.target.value })}
+        />
+        <input 
+          type="email" 
+          placeholder="Email Address" 
+          required
+          className="w-full bg-card/40 border border-border/40 rounded-xl px-4 py-3 outline-none focus:border-primary transition-colors"
+          value={userDetails.email}
+          onChange={(e) => setUserDetails({ ...userDetails, email: e.target.value })}
+        />
+        <input 
+          type="tel" 
+          placeholder="Phone Number" 
+          required
+          className="w-full bg-card/40 border border-border/40 rounded-xl px-4 py-3 outline-none focus:border-primary transition-colors"
+          value={userDetails.phone}
+          onChange={(e) => setUserDetails({ ...userDetails, phone: e.target.value })}
+        />
+        <div className="flex items-center gap-4 bg-card/40 border border-border/40 rounded-xl px-4 py-2">
+          <span className="text-sm font-bold text-muted-foreground flex-1">Participants:</span>
+          <button 
+            className="w-8 h-8 flex items-center justify-center bg-primary/20 text-primary rounded-full hover:bg-primary/30"
+            onClick={() => setUserDetails(prev => ({ ...prev, participantsCount: Math.max(1, prev.participantsCount - 1) }))}
+          >
+            -
+          </button>
+          <span className="font-bold w-4 text-center">{userDetails.participantsCount}</span>
+          <button 
+            className="w-8 h-8 flex items-center justify-center bg-primary/20 text-primary rounded-full hover:bg-primary/30"
+            onClick={() => setUserDetails(prev => ({ ...prev, participantsCount: prev.participantsCount + 1 }))}
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderDurationSelection = () => (
     <div className="space-y-6">
       <h3 className="text-sm font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
         <Clock className="w-4 h-4" /> Select Duration
       </h3>
       <div className="grid grid-cols-2 gap-4">
-        {DURATIONS.map((d) => (
+        {durations.map((d) => (
           <motion.button
             key={d.value}
             whileHover={{ scale: 1.02 }}
@@ -92,7 +269,7 @@ const BookingAssistant = () => {
               duration === d.value ? "text-primary" : "text-foreground"
             )}>{d.label}</span>
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary/70 transition-colors">
-              {d.value === 30 ? "Quick Energy" : "Full Experience"}
+              ₹{d.price} / person
             </span>
           </motion.button>
         ))}
@@ -151,8 +328,8 @@ const BookingAssistant = () => {
     if (!date) return null;
 
     const nextAvailable = getNextAvailableSlot();
-
     const allFull = slots.length > 0 && slots.every(s => s.booked >= s.capacity);
+    
     if (allFull) {
       return (
         <div className="p-6 rounded-3xl bg-secondary/10 border border-secondary/20 space-y-4">
@@ -212,30 +389,12 @@ const BookingAssistant = () => {
             );
           })}
         </div>
-
-        {selectedTime && slots.find(s => s.time === selectedTime)?.booked === slots.find(s => s.time === selectedTime)?.capacity && (
-            <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-destructive" />
-                <p className="text-sm text-destructive font-medium">This slot just became full. Try {nextAvailable?.time}?</p>
-            </div>
-        )}
       </div>
     );
   };
 
-  const handleBookingClick = () => {
-    // Check for double booking (mock)
-    const existing = localStorage.getItem('hf_last_booking_date');
-    if (existing && date && format(new Date(existing), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
-        const confirm = window.confirm("You already have a booking for this date. Are you sure you want to book another?");
-        if (!confirm) return;
-    }
-
-    if (duration && date && selectedTime) {
-      if (date) localStorage.setItem('hf_last_booking_date', date.toISOString());
-      handleBooking();
-    }
-  };
+  const isFormComplete = duration && date && selectedTime && userDetails.name && userDetails.email && userDetails.phone;
+  const totalAmount = calculateAmount();
 
   if (bookingConfirmed) {
     return (
@@ -255,16 +414,16 @@ const BookingAssistant = () => {
 
         <div className="grid grid-cols-2 gap-4 text-left">
           <div className="bg-card/40 p-4 rounded-2xl border border-border/40">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">Duration</span>
-            <span className="font-bold">{duration === 30 ? '30 Minutes' : '1 Hour'}</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">Name</span>
+            <span className="font-bold">{userDetails.name}</span>
           </div>
           <div className="bg-card/40 p-4 rounded-2xl border border-border/40">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">Date</span>
-            <span className="font-bold">{date && format(date, "MMM dd, yyyy")}</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">Participants</span>
+            <span className="font-bold">{userDetails.participantsCount} Explorer(s)</span>
           </div>
           <div className="bg-card/40 p-4 rounded-2xl border border-border/40">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">Time</span>
-            <span className="font-bold">{selectedTime}</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">Date & Time</span>
+            <span className="font-bold">{date && format(date, "MMM dd")} at {selectedTime}</span>
           </div>
           <div className="bg-card/40 p-4 rounded-2xl border border-border/40">
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">Booking ID</span>
@@ -274,7 +433,12 @@ const BookingAssistant = () => {
 
         <PremiumButton 
           className="w-full"
-          onClick={() => setBookingConfirmed(false)}
+          onClick={() => {
+            setBookingConfirmed(false);
+            setDuration(null);
+            setDate(undefined);
+            setSelectedTime(null);
+          }}
         >
           Book Another Session
         </PremiumButton>
@@ -293,10 +457,14 @@ const BookingAssistant = () => {
           <Sparkles className="w-3 h-3" /> Smart Assistant
         </motion.div>
         <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Reserve Your <span className="text-primary italic">Flight</span></h2>
-        <p className="text-muted-foreground text-sm">Quick, clear, and frustration-free booking experience.</p>
+        <p className="text-muted-foreground text-sm">Quick, clear, and secure booking experience.</p>
       </div>
 
       <div className="glass-premium p-8 md:p-10 rounded-[2.5rem] border border-border/40 space-y-10">
+        
+        {renderUserDetails()}
+        
+        <div className="h-px bg-gradient-to-r from-transparent via-border/40 to-transparent" />
         {renderDurationSelection()}
         
         <AnimatePresence>
@@ -328,15 +496,21 @@ const BookingAssistant = () => {
         </AnimatePresence>
 
         <div className="pt-4">
-            <PremiumButton 
+            <PremiumButton
                 className="w-full h-16 text-lg group"
-                disabled={!duration || !date || !selectedTime}
-                onClick={handleBookingClick}
+                disabled={!isFormComplete || isSaving}
+                onClick={handleBooking}
             >
-                Confirm Availability & Book <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                {isSaving ? 'Processing…' : (
+                  <>
+                    <CreditCard className="w-5 h-5 mr-2" /> 
+                    Pay ₹{totalAmount} & Book 
+                    <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
             </PremiumButton>
             <p className="text-center text-[10px] text-muted-foreground mt-4 uppercase tracking-[0.2em]">
-                Max Capacity: 30 Explorers Per Slot
+                Secure Payment via Razorpay
             </p>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
+import { useSite } from '@/hooks/useContent';
 
 const About = () => {
+    const { data: site } = useSite();
     return (
         <section className="py-24 md:py-40 bg-background relative overflow-hidden">
             {/* Background Glow */}
@@ -79,7 +81,7 @@ const About = () => {
                     >
                         <div className="aspect-[4/5] rounded-[3rem] overflow-hidden glass-premium p-3 shadow-2xl relative z-10">
                             <img
-                                src="https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08415-min-scaled.jpg"
+                                src={site?.aboutImage}
                                 alt="HavFun Park Action"
                                 className="w-full h-full object-cover rounded-[2.5rem] transition-transform duration-[2s] group-hover:scale-110"
                             />

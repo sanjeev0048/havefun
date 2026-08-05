@@ -1,40 +1,10 @@
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-
-const ATTRACTIONS = [
-    {
-        title: "Kids Zone",
-        description: "A special area designed for the little ones, filled with soft play zones, mini slides, and interactive play structures for safe, endless fun.",
-        image: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08420-min-1024x683.jpg"
-    },
-    {
-        title: "Foam Pits",
-        description: "Dive headfirst into a soft pit filled with foam cubes, perfect for practicing aerial tricks with a soft landing.",
-        image: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08204-min-scaled.jpg"
-    },
-    {
-        title: "Slam Dunk Zone",
-        description: "Live out your basketball dreams by jumping higher than ever and slam dunking like a pro. Bring out the Kobe Bryant in you!",
-        image: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08368-min-scaled.jpg"
-    },
-    {
-        title: "Wipe Out",
-        description: "Test your agility and strength on our challenging obstacle course that will bring out the strength in you.",
-        image: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08218-min-scaled.jpg"
-    },
-    {
-        title: "Main Court",
-        description: "Bounce freely across interconnected trampolines and practice your flips in an open space. A fun filled Activity.",
-        image: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08259-min-scaled.jpg"
-    },
-    {
-        title: "Spider Wall",
-        description: "Stick, climb, and bounce off our Spider Wall! Suit up in special Velcro suits and leap onto the wall, sticking like a superhero.",
-        image: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08254-min-scaled.jpg"
-    }
-];
+import { useAttractions } from '@/hooks/useContent';
 
 const Attractions = () => {
+    const { data: attractions = [] } = useAttractions();
+
     return (
         <section id="attractions" className="py-28 bg-muted/30 relative overflow-hidden">
             {/* Background Glows */}
@@ -72,9 +42,9 @@ const Attractions = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-                    {ATTRACTIONS.map((attraction, idx) => (
+                    {attractions.map((attraction, idx) => (
                         <motion.div
-                            key={idx}
+                            key={attraction.id}
                             initial={{ opacity: 0, y: 40 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}

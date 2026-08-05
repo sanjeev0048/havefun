@@ -1,17 +1,17 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { useGallery } from '@/hooks/useContent';
 
-const images = [
-  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08204-min-scaled.jpg", title: 'Foam Pit Fun', subtitle: 'Soft Landings' },
-  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08368-min-scaled.jpg", title: 'Slam Dunk', subtitle: 'Sky High' },
-  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08218-min-scaled.jpg", title: 'Obstacle Course', subtitle: 'Agility Test' },
-  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08259-min-scaled.jpg", title: 'Main Court', subtitle: 'Free Jump' },
-  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08254-min-scaled.jpg", title: 'Spider Wall', subtitle: 'Sticky Situation' },
-  { src: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/DSC08314-min-scaled.jpg", title: 'HavFun Cafe', subtitle: 'Refresh & Recharge' },
-];
+// Minimal placeholder so the carousel renders before Firestore responds.
+const PLACEHOLDER = [{ id: 'placeholder', image: '', title: 'HavFun', subtitle: 'Loading…' }];
 
 const ImageGallery = () => {
+  const { data } = useGallery();
+  const images = data && data.length ? data : PLACEHOLDER;
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // Keep index in range if the list length changes after load.
+  const safeIndex = activeIndex % images.length;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -19,21 +19,21 @@ const ImageGallery = () => {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [activeIndex]);
+  }, [activeIndex, images.length]);
 
   return (
     <div className="relative">
       {/* Main Featured Image */}
       <motion.div
-        key={activeIndex}
+        key={safeIndex}
         initial={{ opacity: 0, scale: 1.05 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6 }}
         className="relative rounded-3xl overflow-hidden aspect-[16/10] shadow-premium group"
       >
         <img
-          src={images[activeIndex].src}
-          alt={images[activeIndex].title}
+          src={images[safeIndex].image}
+          alt={images[safeIndex].title}
           className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
@@ -56,10 +56,10 @@ const ImageGallery = () => {
             transition={{ delay: 0.2 }}
           >
             <p className="text-[10px] uppercase tracking-[0.4em] text-primary font-bold mb-2">
-              {images[activeIndex].subtitle}
+              {images[safeIndex].subtitle}
             </p>
             <h3 className="text-2xl md:text-3xl font-serif text-foreground">
-              {images[activeIndex].title}
+              {images[safeIndex].title}
             </h3>
           </motion.div>
         </div>
@@ -69,21 +69,21 @@ const ImageGallery = () => {
       <div className="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {images.map((image, idx) => (
           <motion.button
-            key={idx}
+            key={image.id}
             onClick={() => setActiveIndex(idx)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className={`relative flex-shrink-0 w-20 h-14 md:w-24 md:h-16 rounded-xl overflow-hidden transition-all duration-300 ${idx === activeIndex
+            className={`relative flex-shrink-0 w-20 h-14 md:w-24 md:h-16 rounded-xl overflow-hidden transition-all duration-300 ${idx === safeIndex
               ? 'ring-2 ring-primary shadow-neon'
               : 'ring-1 ring-border/40 opacity-60 hover:opacity-100'
               }`}
           >
             <img
-              src={image.src}
+              src={image.image}
               alt={image.title}
               className="w-full h-full object-cover"
             />
-            {idx === activeIndex && (
+            {idx === safeIndex && (
               <motion.div
                 layoutId="activeThumb"
                 className="absolute inset-0 bg-primary/10"

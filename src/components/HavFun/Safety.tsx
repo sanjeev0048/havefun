@@ -1,30 +1,10 @@
 import { motion } from 'framer-motion';
 import { Shield, LifeBuoy, Heart, Sparkles } from 'lucide-react';
-
-const SAFETY_FEATURES = [
-    {
-        title: "Trained Professionals",
-        description: "Certified instructors ensuring safe play and guidance throughout your visit.",
-        icon: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/WhatsApp-Image-2024-10-08-at-4.17.20-PM3.jpeg1_.png"
-    },
-    {
-        title: "Safety Equipment",
-        description: "Non-slip socks, padded walls, and premium springs for maximum safety.",
-        icon: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/WhatsApp-Image-2024-10-08-at-4.17.20-PM3.png"
-    },
-    {
-        title: "First-Aid Ready",
-        description: "First-aid certified staff always available for immediate assistance.",
-        icon: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/WhatsApp-Image-2024-10-08-at-4.17.20-PM2.jpeg.png"
-    },
-    {
-        title: "Clean and Sanitized",
-        description: "Daily cleaning and strict hygiene protocols maintained throughout the park.",
-        icon: "https://havfuntrampolinepark.com/wp-content/uploads/2024/10/WhatsApp-Image-2024-10-08-at-4.17.20-PM11.png"
-    }
-];
+import { useSafetyFeatures } from '@/hooks/useContent';
 
 const Safety = () => {
+    const { data: safetyFeatures = [] } = useSafetyFeatures();
+
     return (
         <section className="py-28 bg-background relative overflow-hidden">
             {/* Animated Grid Background */}
@@ -61,9 +41,9 @@ const Safety = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-6">
-                    {SAFETY_FEATURES.map((feature, idx) => (
+                    {safetyFeatures.map((feature, idx) => (
                         <motion.div
-                            key={idx}
+                            key={feature.id}
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}

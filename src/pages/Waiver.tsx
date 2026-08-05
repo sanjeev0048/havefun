@@ -27,13 +27,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { PRICING_CONFIG, calculateBasePrice } from '@/lib/pricing-config';
-
-import trampolineZone from '@/assets/trampoline-zone.png';
-import junglePlayground from '@/assets/jungle-playground.png';
-import basketballZone from '@/assets/basketball-zone.png';
-import bubbleBalls from '@/assets/bubble-balls.png';
-import obstacleZone from '@/assets/obstacle-zone.png';
+import { PRICING_CONFIG as STATIC_PRICING, calculateBasePrice } from '@/lib/pricing-config';
+import { usePricing, useSite, useWaiverImages } from '@/hooks/useContent';
+import { submitWaiver } from '@/lib/submissions';
 
 const SECTIONS = [
     {
@@ -42,7 +38,6 @@ const SECTIONS = [
         subtitle: 'A Covenant of Joy',
         icon: <ShieldCheck />,
         content: "This elegant agreement affirms your discerning choice to engage in HavFun's curated experiences. We invite you into a realm of movement and vitality.",
-        image: trampolineZone,
     },
     {
         id: 'risks',
@@ -50,7 +45,6 @@ const SECTIONS = [
         subtitle: 'Risk Acknowledgment',
         icon: <AlertCircle />,
         content: "With poise, I recognize the symphony of risks in these pursuits—falls, collisions, and the inherent nature of gravity.",
-        image: basketballZone,
     },
     {
         id: 'eligibility',
@@ -58,7 +52,6 @@ const SECTIONS = [
         subtitle: 'Sovereign Certification',
         icon: <Crown />,
         content: "I avow my station: of age or kin, wielding the quill with rightful sovereignty for myself or those within my sacred care.",
-        image: junglePlayground,
     },
     {
         id: 'medical',
@@ -66,7 +59,6 @@ const SECTIONS = [
         subtitle: 'Legacy of Care',
         icon: <Users />,
         content: "Should fortune waver, I entrust HavFun's stewards to summon healing arts. I bear the ledger of such benevolence myself.",
-        image: bubbleBalls,
     },
     {
         id: 'signature',
@@ -74,7 +66,6 @@ const SECTIONS = [
         subtitle: 'Ratification',
         icon: <PenTool />,
         content: "Having perused this tome with clarity, my mark seals an enduring alliance—from this dawn to all tomorrows.",
-        image: obstacleZone,
     }
 ];
 
@@ -93,6 +84,7 @@ interface FormData {
     phone: string;
     emergencyContact: string;
     signed: boolean;
+    signature: string | null;
     participants: Participant[];
     duration: 30 | 60;
     needsSocks: boolean;
@@ -107,6 +99,11 @@ const Waiver = () => {
     const [isComplete, setIsComplete] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [userType, setUserType] = useState<'sovereign' | 'guardian'>('sovereign');
+    const { data: pricing } = usePricing();
+    const { data: site } = useSite();
+    const { data: waiverImages = [] } = useWaiverImages();
+    const PRICING_CONFIG = pricing ?? STATIC_PRICING;
+    const sectionImage = (id: string) => waiverImages.find((w) => w.id === id)?.image ?? '';
 
     const [formData, setFormData] = useState<FormData>({
         acknowledged: false,
@@ -117,6 +114,7 @@ const Waiver = () => {
         phone: '',
         emergencyContact: '',
         signed: false,
+        signature: null,
         participants: [{ name: '', dob: '', id: Math.random() }],
         duration: 30,
         needsSocks: true,
@@ -127,7 +125,7 @@ const Waiver = () => {
         const [hourStr] = formData.visitTime.split(':');
         const hour = parseInt(hourStr);
         
-        const pricePerPerson = calculateBasePrice(formData.duration, formData.visitDate, hour);
+        const pricePerPerson = calculateBasePrice(formData.duration, formData.visitDate, hour, PRICING_CONFIG);
         const socksPrice = formData.needsSocks ? PRICING_CONFIG.gripSocks : 0;
         const subtotal = (pricePerPerson + socksPrice) * formData.participants.length;
         const gst = subtotal * PRICING_CONFIG.gst;
@@ -142,25 +140,30 @@ const Waiver = () => {
         } else {
             setIsSubmitting(true);
             try {
-                const response = await fetch('http://localhost:5000/api/waiver', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formData),
+                const totals = calculateTotal();
+                await submitWaiver({
+                    name: formData.name,
+                    email: formData.email,
+                    phone: formData.phone,
+                    emergencyContact: formData.emergencyContact,
+                    userType,
+                    participants: formData.participants.map((p) => ({ name: p.name, dob: p.dob })),
+                    duration: formData.duration,
+                    needsSocks: formData.needsSocks,
+                    visitDate: formData.visitDate.toISOString(),
+                    visitTime: formData.visitTime,
+                    acknowledged: formData.acknowledged,
+                    liabilityAccepted: formData.liabilityAccepted,
+                    medicalConsent: formData.medicalConsent,
+                    signed: formData.signed,
+                    signature: formData.signature,
+                    pricing: { subtotal: totals.subtotal, gst: totals.gst, total: totals.total },
                 });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    toast.success('Waiver archived successfully!');
-                    setIsComplete(true);
-                } else {
-                    toast.error(data.message || 'Failed to archive waiver. Please check your connection.');
-                }
+                toast.success('Waiver archived successfully!');
+                setIsComplete(true);
             } catch (error) {
                 console.error('Submission error:', error);
-                toast.error('Could not reach the server. Please ensure the backend is running.');
+                toast.error('Could not save your waiver. Please try again.');
             } finally {
                 setIsSubmitting(false);
             }
@@ -271,7 +274,7 @@ const Waiver = () => {
                     </div>
 
                     <div className="flex flex-col gap-4 items-center">
-                        <a href="https://razorpay.me/@vvpsentertainmentandadventure" target="_blank" rel="noopener noreferrer" className="w-full max-w-xs">
+                        <a href={site?.razorpayLink ?? 'https://razorpay.me/@vvpsentertainmentandadventure'} target="_blank" rel="noopener noreferrer" className="w-full max-w-xs">
                             <PremiumButton className="w-full">
                                 <Sparkles className="w-5 h-5" /> Pay ₹{calculateTotal().total.toFixed(0)} Now
                             </PremiumButton>
@@ -398,7 +401,7 @@ const Waiver = () => {
                                         className="lg:hidden relative rounded-2xl overflow-hidden aspect-video shadow-premium"
                                     >
                                         <img
-                                            src={SECTIONS[step].image}
+                                            src={sectionImage(SECTIONS[step].id)}
                                             alt={SECTIONS[step].title}
                                             className="w-full h-full object-cover"
                                         />
@@ -434,7 +437,7 @@ const Waiver = () => {
                                             <div className="space-y-8">
                                                 <div className="relative rounded-2xl overflow-hidden aspect-video shadow-premium mb-6 hidden lg:block">
                                                     <img
-                                                        src={basketballZone}
+                                                        src={sectionImage('risks')}
                                                         alt="Basketball Zone"
                                                         className="w-full h-full object-cover"
                                                     />
@@ -653,7 +656,7 @@ const Waiver = () => {
                                             <div className="space-y-10">
                                                 <div className="relative rounded-2xl overflow-hidden aspect-video shadow-premium mb-6 hidden lg:block">
                                                     <img
-                                                        src={bubbleBalls}
+                                                        src={sectionImage('medical')}
                                                         alt="Bubble Balls"
                                                         className="w-full h-full object-cover"
                                                     />
@@ -710,7 +713,10 @@ const Waiver = () => {
                                         {/* Final Signature */}
                                         {step === 4 && (
                                             <div className="space-y-10">
-                                                <SignaturePad onSign={(val) => setFormData(prev => ({ ...prev, signed: val }))} />
+                                                <SignaturePad
+                                                    onSign={(val) => setFormData(prev => ({ ...prev, signed: val }))}
+                                                    onSignatureChange={(dataUrl) => setFormData(prev => ({ ...prev, signature: dataUrl }))}
+                                                />
 
                                                 <div className="flex justify-center h-28">
                                                     <AnimatePresence>

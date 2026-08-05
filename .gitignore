@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Env files (keep .env.example tracked)
+.env
+.env.*
+!.env.example
+
+# Generated seed data (regenerate with `npm run images:build`)
+scripts/generated
+# Firebase service account key (never commit)
+serviceAccount.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
